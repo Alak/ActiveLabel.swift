@@ -9,6 +9,8 @@
 import Foundation
 import UIKit
 
+public typealias UsernameLink = (username: String, id: String)
+
 public protocol ActiveLabelDelegate: class {
     func didSelectText(text: String, type: ActiveType)
 }
@@ -17,6 +19,7 @@ public protocol ActiveLabelDelegate: class {
     
     // MARK: - public properties
     public weak var delegate: ActiveLabelDelegate?
+    public var usernameArray: [UsernameLink] = []
     
     @IBInspectable public var mentionEnabled: Bool = true {
         didSet {
@@ -29,6 +32,11 @@ public protocol ActiveLabelDelegate: class {
         }
     }
     @IBInspectable public var URLEnabled: Bool = true {
+        didSet {
+            updateTextStorage()
+        }
+    }
+    @IBInspectable public var usernameEnabled: Bool = true {
         didSet {
             updateTextStorage()
         }
@@ -68,6 +76,23 @@ public protocol ActiveLabelDelegate: class {
             updateTextStorage()
         }
     }
+    @IBInspectable public var usernameColor: UIColor = .blueColor() {
+        didSet {
+            updateTextStorage()
+        }
+    }
+    @IBInspectable public var usernameSelectedColor: UIColor? {
+        didSet {
+            updateTextStorage()
+        }
+    }
+    @IBInspectable public var usernameFont: UIFont? {
+        didSet {
+            updateTextStorage()
+        }
+    }
+
+
     
     // MARK: - public methods
     public func handleMentionTap(handler: (String) -> ()) {
@@ -80,6 +105,10 @@ public protocol ActiveLabelDelegate: class {
     
     public func handleURLTap(handler: (NSURL) -> ()) {
         urlTapHandler = handler
+    }
+    
+    public func handleUsernameTap(handler: (UsernameLink) -> ()) {
+        usernameTapHandler = handler
     }
     
     // MARK: - override UILabel properties
@@ -171,6 +200,7 @@ public protocol ActiveLabelDelegate: class {
             case .Mention(let userHandle): didTapMention(userHandle)
             case .Hashtag(let hashtag): didTapHashtag(hashtag)
             case .URL(let url): didTapStringURL(url)
+            case .UsernameLink(let usernameLink): didTapUsername(usernameLink)
             case .None: ()
             }
             
@@ -190,6 +220,7 @@ public protocol ActiveLabelDelegate: class {
     private var mentionTapHandler: ((String) -> ())?
     private var hashtagTapHandler: ((String) -> ())?
     private var urlTapHandler: ((NSURL) -> ())?
+    private var usernameTapHandler: ((UsernameLink) -> ())?
     
     private var selectedElement: (range: NSRange, element: ActiveElement)?
     private var heightCorrection: CGFloat = 0
@@ -200,6 +231,7 @@ public protocol ActiveLabelDelegate: class {
         .Mention: [],
         .Hashtag: [],
         .URL: [],
+        .UsernameLink: [],
     ]
     
     // MARK: - helper functions
@@ -257,6 +289,11 @@ public protocol ActiveLabelDelegate: class {
             case .Mention: attributes[NSForegroundColorAttributeName] = mentionColor
             case .Hashtag: attributes[NSForegroundColorAttributeName] = hashtagColor
             case .URL: attributes[NSForegroundColorAttributeName] = URLColor
+            case .UsernameLink:
+                attributes[NSForegroundColorAttributeName] = usernameColor
+                if let usernameFont = usernameFont {
+                    attributes[NSFontAttributeName] = usernameFont
+                }
             case .None: ()
             }
             
@@ -272,7 +309,8 @@ public protocol ActiveLabelDelegate: class {
         let textLength = textString.length
         var searchRange = NSMakeRange(0, textLength)
         
-        for word in textString.componentsSeparatedByCharactersInSet(NSCharacterSet.whitespaceAndNewlineCharacterSet()) {
+        var usernameIndex: Int = 0
+        for (index, word) in textString.componentsSeparatedByCharactersInSet(NSCharacterSet.whitespaceAndNewlineCharacterSet()).enumerate() {
             let element = activeElement(word)
     
             if case .None = element {
@@ -294,6 +332,11 @@ public protocol ActiveLabelDelegate: class {
                 activeElements[.URL]?.append((elementRange, element))
             default: ()
             }
+        }
+        
+        if usernameEnabled {
+            let elements = activeUsernameLinkElements(usernameArray, str: textString)
+            activeElements[.UsernameLink]? += elements
         }
     }
     
@@ -328,6 +371,11 @@ public protocol ActiveLabelDelegate: class {
             case .Mention(_): attributes[NSForegroundColorAttributeName] = mentionColor
             case .Hashtag(_): attributes[NSForegroundColorAttributeName] = hashtagColor
             case .URL(_): attributes[NSForegroundColorAttributeName] = URLColor
+            case .UsernameLink(_):
+                attributes[NSForegroundColorAttributeName] = usernameColor
+                if let usernameFont = usernameFont {
+                    attributes[NSFontAttributeName] = usernameFont
+                }
             case .None: ()
             }
         } else {
@@ -335,6 +383,11 @@ public protocol ActiveLabelDelegate: class {
             case .Mention(_): attributes[NSForegroundColorAttributeName] = mentionSelectedColor ?? mentionColor
             case .Hashtag(_): attributes[NSForegroundColorAttributeName] = hashtagSelectedColor ?? hashtagColor
             case .URL(_): attributes[NSForegroundColorAttributeName] = URLSelectedColor ?? URLColor
+            case .UsernameLink(_):
+                attributes[NSForegroundColorAttributeName] = usernameSelectedColor ?? usernameColor
+                if let usernameFont = usernameFont {
+                    attributes[NSFontAttributeName] = usernameFont
+                }
             case .None: ()
             }
         }
@@ -410,6 +463,14 @@ public protocol ActiveLabelDelegate: class {
             return
         }
         urlHandler(url)
+    }
+    
+    private func didTapUsername(usernameLink: UsernameLink) {
+        guard let usernameTapHandler = usernameTapHandler else {
+            delegate?.didSelectText(usernameLink.id, type: .UsernameLink)
+            return
+        }
+        usernameTapHandler(usernameLink)
     }
 }
 

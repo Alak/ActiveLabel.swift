@@ -12,6 +12,7 @@ enum ActiveElement {
     case Mention(String)
     case Hashtag(String)
     case URL(String)
+    case UsernameLink(username: String, id: String)
     case None
 }
 
@@ -19,6 +20,7 @@ public enum ActiveType {
     case Mention
     case Hashtag
     case URL
+    case UsernameLink
     case None
 }
 
@@ -45,6 +47,23 @@ func activeElement(word: String) -> ActiveElement {
     }
 }
 
+func activeUsernameLinkElements(usernameLinks: [UsernameLink], str: NSString) -> [(range: NSRange, element: ActiveElement)] {
+    let names = usernameLinks.map { $0.username }
+    
+    var activeElements: [(range: NSRange, element: ActiveElement)]  = []
+    
+    for (index, name) in names.enumerate() {
+        let range = str.rangeOfString(name)
+        
+        if range.location != NSNotFound {
+            let usernameLink = usernameLinks[index]
+            activeElements.append((range, ActiveElement.UsernameLink(username: usernameLink.username, id: usernameLink.id)))
+        }
+    }
+
+    return activeElements
+}
+
 private func reduceRightToURL(str: String) -> String? {
     if let urlDetector = try? NSDataDetector(types: NSTextCheckingType.Link.rawValue) {
         let nsStr = str as NSString
@@ -68,3 +87,5 @@ private func reduceRightToAllowed(str: String) -> String? {
     }
     return nil
 }
+
+
